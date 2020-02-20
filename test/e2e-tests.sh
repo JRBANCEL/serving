@@ -61,6 +61,18 @@ go_test_e2e -timeout=30m \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
+# Run scale tests.
+go_test_e2e -timeout=10m \
+  ${parallelism} \
+  ./test/scale || failed=1
+
+# Istio E2E tests mutate the cluster and must be ran separately
+if [[ -n "${ISTIO_VERSION}" ]]; then
+  go_test_e2e -timeout=10m \
+    ./test/e2e/istio \
+    "--resolvabledomain=$(use_resolvable_domain)" || failed=1
+fi
+
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
 kubectl apply -f ./test/config/autotls/certmanager/selfsigned/
@@ -74,18 +86,6 @@ add_trap "kubectl delete -f ./test/config/autotls/certmanager/http01/ --ignore-n
 go_test_e2e -timeout=10m \
   ./test/conformance/certificate/http01 "$(certificate_class)" || failed=1
 kubectl delete -f ./test/config/autotls/certmanager/http01/
-
-# Run scale tests.
-go_test_e2e -timeout=10m \
-  ${parallelism} \
-  ./test/scale || failed=1
-
-# Istio E2E tests mutate the cluster and must be ran separately
-if [[ -n "${ISTIO_VERSION}" ]]; then
-  go_test_e2e -timeout=10m \
-    ./test/e2e/istio \
-    "--resolvabledomain=$(use_resolvable_domain)" || failed=1
-fi
 
 # Auto TLS E2E tests mutate the cluster and must be ran separately
 # because they need auto-tls and cert-manager specific configurations
