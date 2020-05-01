@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"golang.org/x/time/rate"
 	"net"
 	"net/http"
 	"net/url"
@@ -134,7 +135,10 @@ func NewProber(
 		ingressStates: make(map[string]*ingressState),
 		podContexts:   make(map[string]cancelContext),
 		workQueue: workqueue.NewNamedRateLimitingQueue(
-			workqueue.DefaultControllerRateLimiter(),
+			workqueue.NewMaxOfRateLimiter(
+				workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 30*time.Second), // Per item
+				&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(100), 100)},      // Global
+			),
 			"ProbingQueue"),
 		targetLister:     targetLister,
 		readyCallback:    readyCallback,
